@@ -1,8 +1,9 @@
 from xml.etree import ElementTree
 import time
 import jsons
-from boinc.rpc._Struct import _Struct
+
 from boinc._Helpers import setattrs_from_xml
+from boinc.rpc._Struct import _Struct
 from boinc.rpc.enums.ResultState import ResultState
 from boinc.rpc.enums.Process import Process
 from boinc.rpc.enums.CpuSched import CpuSched

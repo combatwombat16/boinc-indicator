@@ -1,5 +1,6 @@
-from boinc._Helpers import setattrs_from_xml
 import jsons
+
+from boinc._Helpers import setattrs_from_xml
 
 
 class _Struct(object):

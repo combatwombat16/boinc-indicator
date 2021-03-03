@@ -1,6 +1,7 @@
 import time
 import jsons
 from xml.etree import ElementTree
+
 from boinc.rpc._Struct import _Struct
 
 

@@ -1,9 +1,10 @@
-from boinc.rpc.Rpc import Rpc
 import socket
 import hashlib
 import pytz
 from datetime import datetime
+
 from boinc._Helpers import read_gui_rpc_password
+from boinc.rpc.Rpc import Rpc
 from boinc.rpc.CcStatus import CcStatus
 from boinc.rpc.VersionInfo import VersionInfo
 from boinc.rpc.Result import Result

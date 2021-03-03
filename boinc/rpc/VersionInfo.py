@@ -1,5 +1,4 @@
 from functools import total_ordering
-import json
 from boinc.rpc._Struct import _Struct
 
 
@@ -24,13 +23,3 @@ class VersionInfo(_Struct):
         if not isinstance(other, self.__class__):
             return NotImplemented
         return self._tuple > other._tuple
-
-    #def __str__(self):
-        #prep_dict = dict()
-        #prep_dict['version'] = "%d.%d.%d" % (self.major, self.minor, self.release)
-
-        #return jsons.dumps(prep_dict)
-
-    #def __repr__(self):
-    #    return "%s%r" % (self.__class__.__name__, self._tuple)
-
