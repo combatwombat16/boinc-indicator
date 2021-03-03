@@ -25,6 +25,7 @@ import queue
 from threading import Thread, Event, Lock
 from influx.Collector import Collector
 import logging
+from time import sleep
 
 
 hosts = [
@@ -33,7 +34,6 @@ hosts = [
     , "192.168.1.230", "192.168.1.231"
     , "192.168.1.240", "192.168.1.241"
 ]
-queueLock = Lock()
 workQueue = queue.Queue(5000)
 logging.basicConfig(filename='./client_v2.log', level=logging.DEBUG)
 
@@ -54,11 +54,10 @@ class BoincThread(Thread):
 
     def run(self):
         while not self.stopped.wait(5):
-            queueLock.acquire()
             for point in self.client.getInfluxPoints():
                 self.queue.put(point.to_dict())
             logging.debug('Added points host %s, queue size now %d' % (self.ip, self.queue.qsize()))
-            queueLock.release()
+        self.__exit__()
 
 
 class InfluxThread(Thread):
@@ -73,33 +72,39 @@ class InfluxThread(Thread):
         self.collector = Collector(database=self.database, host=self.db_host, port=self.port).__enter__()
 
     def __exit__(self):
+        logging.debug("Draining pool one last time then exiting")
+        data = []
+        while not self.queue.empty():
+            data.append(self.queue.get())
+        self.collector.write_data(data)
         logging.info("Disconnecting from Influx host")
         self.collector.__exit__()
 
     def run(self):
         data = []
         while not self.stopped.wait(10):
-            queueLock.acquire()
             logging.debug('Draining %d points from the queue' % (self.queue.qsize()))
             while not self.queue.empty():
                 data.append(self.queue.get())
-            queueLock.release()
             self.collector.write_data(data)
+
+        self.__exit__()
+
 
 
 if __name__ == '__main__':
     threads = []
-    stopFlag = Event()
+    stopBoincFlag = Event()
+    stopInfluxFlag = Event()
 
-    #with Collector(database="boinc_test", host="192.168.1.230", port=8086) as collector:
     for host in hosts:
         boinc_worker = BoincThread(ip=host
                                    , shared_queue=workQueue
-                                   , event=stopFlag)
+                                   , event=stopBoincFlag)
         boinc_worker.start()
         threads.append(boinc_worker)
 
-    influx_worker = InfluxThread(event=stopFlag
+    influx_worker = InfluxThread(event=stopInfluxFlag
                                  , shared_queue=workQueue
                                  , database='boinc_test'
                                  , db_host='192.168.1.230'
@@ -108,4 +113,8 @@ if __name__ == '__main__':
     influx_worker.start()
 
     threads.append(influx_worker)
-    #stopFlag.set()
+
+    sleep(30)
+    stopBoincFlag.set()
+    sleep(3)
+    stopInfluxFlag.set()
