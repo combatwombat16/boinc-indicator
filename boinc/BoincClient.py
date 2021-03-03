@@ -1,4 +1,4 @@
-import rpc
+from boinc.rpc.Rpc import Rpc
 import socket
 import hashlib
 import pytz
@@ -25,7 +25,7 @@ class BoincClient(object):
         self.hostname = host[0]
         self.port = int(host[1]) if len(host) == 2 else 0
         self.passwd = passwd
-        self.rpc = rpc.Rpc(text_output=False)
+        self.rpc = Rpc(text_output=False)
         self.version = None
         self.authorized = False
 

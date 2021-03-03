@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# rpc.py - Generic RPC Somewhat higher-level GUI_RPC API for BOINC core client
+# Rpc.py - Generic RPC Somewhat higher-level GUI_RPC API for BOINC core client
 #
 #    Copyright (C) 2013 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
 #
