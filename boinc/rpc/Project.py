@@ -77,6 +77,7 @@ class Project(_Struct):
         self.disk_share = ""
         self.send_full_workload = False
         self.no_rsc_apps = ""
+        self.scheduler_rpc_in_progress = True
 
         self.venue = None
 

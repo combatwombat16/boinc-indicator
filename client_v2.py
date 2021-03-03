@@ -24,6 +24,7 @@ from boinc.BoincClient import BoincClient
 import queue
 from threading import Thread, Event, Lock
 from influx.Collector import Collector
+import logging
 
 
 hosts = [
@@ -34,6 +35,7 @@ hosts = [
 ]
 queueLock = Lock()
 workQueue = queue.Queue(5000)
+logging.basicConfig(filename='./client_v2.log', level=logging.DEBUG)
 
 
 class BoincThread(Thread):
@@ -43,9 +45,11 @@ class BoincThread(Thread):
         self.passwd = passwd
         self.queue = shared_queue
         self.stopped = event
+        logging.info('Creating BoincClient to host %s' % (self.ip))
         self.client = BoincClient(host=self.ip, passwd=self.passwd).__enter__()
 
     def __exit__(self, *args):
+        logging.info('Disconnecting from Boinc host at %s' % (self.client))
         self.client.__exit__()
 
     def run(self):
@@ -53,6 +57,7 @@ class BoincThread(Thread):
             queueLock.acquire()
             for point in self.client.getInfluxPoints():
                 self.queue.put(point.to_dict())
+            logging.debug('Added points host %s, queue size now %d' % (self.ip, self.queue.qsize()))
             queueLock.release()
 
 
@@ -64,19 +69,22 @@ class InfluxThread(Thread):
         self.db_host = db_host
         self.port = port
         self.stopped = event
+        logging.info('Connecting to InfluxDB at host %s and database %s' % (self.db_host, self.database))
         self.collector = Collector(database=self.database, host=self.db_host, port=self.port).__enter__()
 
     def __exit__(self):
+        logging.info("Disconnecting from Influx host")
         self.collector.__exit__()
 
     def run(self):
         data = []
         while not self.stopped.wait(10):
             queueLock.acquire()
+            logging.debug('Draining %d points from the queue' % (self.queue.qsize()))
             while not self.queue.empty():
                 data.append(self.queue.get())
             queueLock.release()
-        self.collector.write_data(data)
+            self.collector.write_data(data)
 
 
 if __name__ == '__main__':
@@ -97,4 +105,7 @@ if __name__ == '__main__':
                                  , db_host='192.168.1.230'
                                  , port=8086)
 
-    stopFlag.set()
+    influx_worker.start()
+
+    threads.append(influx_worker)
+    #stopFlag.set()
