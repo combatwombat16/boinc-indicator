@@ -5,11 +5,12 @@ from influx.Collector import Collector
 
 
 class InfluxThread(Thread):
-    def __init__(self, event, shared_queue, database, db_host, port=8086):
+    def __init__(self, event, shared_queue, database, db_host, name, port=8086):
         Thread.__init__(self)
         self.queue = shared_queue
         self.database = database
         self.db_host = db_host
+        self.name = name
         self.port = port
         self.stopped = event
         logging.info('Connecting to InfluxDB at host %s and database %s' % (self.db_host, self.database))

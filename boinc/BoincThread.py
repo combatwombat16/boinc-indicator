@@ -5,9 +5,10 @@ from boinc.BoincClient import BoincClient
 
 
 class BoincThread(Thread):
-    def __init__(self, event, shared_queue, ip, passwd='boinc'):
+    def __init__(self, event, shared_queue, ip, name, passwd='boinc'):
         Thread.__init__(self)
         self.ip = ip
+        self.name = name
         self.passwd = passwd
         self.queue = shared_queue
         self.stopped = event

@@ -79,6 +79,7 @@ class Project(_Struct):
         self.send_full_workload = False
         self.no_rsc_apps = ""
         self.scheduler_rpc_in_progress = True
+        self.upload_backoff = 0.0
 
         self.venue = None
 
