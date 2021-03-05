@@ -1,9 +1,10 @@
+import logging
 from flask import Flask, jsonify
 from flask_restplus import Api, Resource, fields
+
 import api.constants as const
 from boinc.BoincThread import BoincThread
 from influx.InfluxThread import InfluxThread
-import logging
 
 logging.basicConfig(filename='./webui.log', level=logging.DEBUG, filemode='w')
 
@@ -15,8 +16,8 @@ app = Api(app=flask_app
           , version="0.1.0"
           , title="Boinc API"
           , description="API to interact with Boinc and InfluxDB"
-          , license="MIT"
-          , license_url="https://opensource.org/licenses/MIT"
+          , license="GPLv3+"
+          , license_url="http://www.gnu.org/licenses/gpl-3.0.html"
           , contact_email="combatwombat16@gmail.com")
 
 thread_info = app.model("threads", {

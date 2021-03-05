@@ -1,7 +1,7 @@
 from influxdb import InfluxDBClient
 
 
-class Collector(object):
+class InfluxClient(object):
     def __init__(self, database, host, port=8086):
         self.database = database
         self.host = host

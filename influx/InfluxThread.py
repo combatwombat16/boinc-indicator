@@ -1,7 +1,7 @@
 from threading import Thread
 import logging
 
-from influx.Collector import Collector
+from influx.InfluxClient import InfluxClient
 
 
 class InfluxThread(Thread):
@@ -14,7 +14,7 @@ class InfluxThread(Thread):
         self.port = port
         self.stopped = event
         logging.info('Connecting to InfluxDB at host %s and database %s' % (self.db_host, self.database))
-        self.collector = Collector(database=self.database, host=self.db_host, port=self.port).__enter__()
+        self.collector = InfluxClient(database=self.database, host=self.db_host, port=self.port).__enter__()
 
     def __exit__(self):
         logging.debug("Draining pool one last time then exiting")
