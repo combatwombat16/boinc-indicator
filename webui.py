@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 from flask_restplus import Api, Resource, fields
-import constants as const
+import api.constants as const
 from boinc.BoincThread import BoincThread
 from influx.InfluxThread import InfluxThread
 import logging
@@ -26,34 +26,25 @@ thread_info = app.model("threads", {
 
 
 @app.route('/')
-@app.doc(responses={200: 'OK'})
 class Home(Resource):
     def get(self):
         return "<h1>Boinc API</h1><p>This API interacts with Boinc and InfluxDB to capture statistics for visualization.</p>"
 
 
-@app.route('/threads')
-@app.doc(responses={200: 'OK'})
-class GetThreads(Resource):
-    def get(self):
-        return jsonify([thread.name for thread in const.consumer_threads]
-                       + [thread.name for thread in const.producer_threads])
-
-
 @app.route('/boinc/hosts')
-@app.doc(responses={200: 'OK'})
 class GetBoincNodes(Resource):
     def get(self):
         return jsonify(const.boinc_hosts)
 
 
 @app.route('/boinc/threads/<string:action>')
-@app.doc(responses={200: 'OK', 404: 'Invalid action specified'}, params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
+@app.doc(params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
 class ControlBoincThreads(Resource):
     @app.hide
     def get(self, action='list'):
         return jsonify([{"name": thread.name, "is_alive": thread.is_alive()} for thread in const.producer_threads])
 
+    @app.response(400, 'Invalid action specified')
     def put(self, action):
         if action.lower() == 'start':
             logging.debug("starting boinc threads")
@@ -75,23 +66,23 @@ class ControlBoincThreads(Resource):
             logging.debug(("listing boinc threads"))
             return self.get()
         else:
-            app.abort('404')
+            app.abort(400)
 
 
 @app.route('/influxdb/hosts')
-@app.doc(responses={200: 'OK'})
 class GetInfluxdbHosts(Resource):
     def get(self):
         return jsonify(const.influxdb_hosts)
 
 
 @app.route('/influxdb/threads/<string:action>')
-@app.doc(responses={200: 'OK', 404: 'Invalid action specified'}, params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
+@app.doc(params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
 class ControlInfluxThreads(Resource):
     @app.hide
     def get(self, action='list'):
         return jsonify([{'name': thread.name, 'is_alive': thread.is_alive()} for thread in const.consumer_threads])
 
+    @app.response(400, 'Invalid action specified')
     def put(self, action):
         if action.lower() == 'start':
             logging.debug("starting influxdb threads")
@@ -114,7 +105,7 @@ class ControlInfluxThreads(Resource):
             logging.debug("listing influxdb threads")
             return self.get()
         else:
-            app.abort('404')
+            app.abort(400)
 
 
 if __name__ == '__main__':
