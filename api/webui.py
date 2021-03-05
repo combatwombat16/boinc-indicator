@@ -11,6 +11,7 @@ flask_app = Flask(__name__)
 flask_app.config["DEBUG"] = True
 
 app = Api(app=flask_app
+          , swagger="2.0"
           , version="0.1.0"
           , title="Boinc API"
           , description="API to interact with Boinc and InfluxDB"
@@ -24,24 +25,31 @@ thread_info = app.model("threads", {
 })
 
 
-@app.doc(responses={200: 'OK'},
-         params={})
 @app.route('/')
+@app.doc(responses={200: 'OK'})
 class Home(Resource):
     def get(self):
         return "<h1>Boinc API</h1><p>This API interacts with Boinc and InfluxDB to capture statistics for visualization.</p>"
 
 
 @app.route('/threads')
+@app.doc(responses={200: 'OK'})
 class GetThreads(Resource):
     def get(self):
         return jsonify([thread.name for thread in const.consumer_threads]
                        + [thread.name for thread in const.producer_threads])
 
 
+@app.route('/boinc/hosts')
+@app.doc(responses={200: 'OK'})
+class GetBoincNodes(Resource):
+    def get(self):
+        return jsonify(const.boinc_hosts)
+
+
 @app.route('/boinc/threads/<string:action>')
-@app.doc(params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
-class BoincThreads(Resource):
+@app.doc(responses={200: 'OK', 404: 'Invalid action specified'}, params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
+class ControlBoincThreads(Resource):
     @app.hide
     def get(self, action='list'):
         return jsonify([{"name": thread.name, "is_alive": thread.is_alive()} for thread in const.producer_threads])
@@ -54,7 +62,7 @@ class BoincThreads(Resource):
                 boinc_worker = BoincThread(ip=host
                                            , shared_queue=const.workQueue
                                            , event=const.producerStopEvent
-                                           , name=host + '_thread')
+                                           , name="boinc_" + host + '_thread')
                 boinc_worker.start()
                 const.producer_threads.append(boinc_worker)
             return self.get()
@@ -70,15 +78,16 @@ class BoincThreads(Resource):
             app.abort('404')
 
 
-@app.route('/boinc/hosts')
-class GetBoincNodes(Resource):
+@app.route('/influxdb/hosts')
+@app.doc(responses={200: 'OK'})
+class GetInfluxdbHosts(Resource):
     def get(self):
-        return jsonify(const.boinc_hosts)
+        return jsonify(const.influxdb_hosts)
 
 
 @app.route('/influxdb/threads/<string:action>')
-@app.doc(params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
-class InfluxThreads(Resource):
+@app.doc(responses={200: 'OK', 404: 'Invalid action specified'}, params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
+class ControlInfluxThreads(Resource):
     @app.hide
     def get(self, action='list'):
         return jsonify([{'name': thread.name, 'is_alive': thread.is_alive()} for thread in const.consumer_threads])
@@ -92,7 +101,7 @@ class InfluxThreads(Resource):
                                              , database=const.influxdb_database
                                              , shared_queue=const.workQueue
                                              , event=const.consumerStopEvent
-                                             , name=host + "_name")
+                                             , name="influx_" + host + "_name")
                 influx_worker.start()
                 const.consumer_threads.append(influx_worker)
             return self.get()
@@ -106,12 +115,6 @@ class InfluxThreads(Resource):
             return self.get()
         else:
             app.abort('404')
-
-
-@app.route('/influxdb/hosts')
-class GetInfluxdbHosts(Resource):
-    def get(self):
-        return jsonify(const.influxdb_hosts)
 
 
 if __name__ == '__main__':
