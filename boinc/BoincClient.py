@@ -180,6 +180,7 @@ class BoincClient(object):
         return False
 
     def getInfluxPoints(self):
+        """ Build data points for transmission to InfluxDB for project and task monitoring. """
         points = []
         # Get info from boinc client
         hostInfo = self.get_host_info()
@@ -187,17 +188,21 @@ class BoincClient(object):
         rs = ResultState()
         ps = Process()
         cs = CpuSched()
-        for result in self.get_results(True):
+        results = self.get_results(True)
+        projects = self.get_projects()
+        for result in results:
+            # Create new point
             point = Point(measurement='task', time=dt)
             # Set tags
             point.tags['host'] = hostInfo.domain_name
             point.tags['ip_address'] = hostInfo.ip_addr
-            point.tags['project_url'] = result.project_url
+            point.tags['project_name'] = [project.project_name for project in projects
+                                          if project.master_url == result.project_url][0]
             point.tags['state'] = rs.name(result.state)
             point.tags['active_task_state'] = ps.name(result.active_task_state)
             point.tags['scheduler_state'] = cs.name(result.scheduler_state)
+            point.tags['task_name'] = result.name
             # Set fields
-            point.fields['task_name'] = result.name
             point.fields['elapsed_time'] = result.elapsed_time
             point.fields['fraction_done'] = result.fraction_done
             point.fields['swap_size'] = result.swap_size
@@ -207,12 +212,14 @@ class BoincClient(object):
             point.fields['gpu'] = 1 if len(tmp_res) > 1 else 0
             points.append(point)
 
-        for project in self.get_projects():
+        for project in projects:
+            # Create new point
             point = Point(measurement='project', time=dt)
+            # Set tags
             point.tags['host'] = hostInfo.domain_name
             point.tags['ip_address'] = hostInfo.ip_addr
             point.tags['project_name'] = project.project_name
-
+            # Set fields
             point.fields['host_total_credit'] = project.host_total_credit
             point.fields['host_average_credit'] = project.host_expavg_credit
             point.fields['user_total_credit'] = project.user_total_credit
