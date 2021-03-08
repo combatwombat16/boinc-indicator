@@ -1,9 +1,10 @@
 import queue
 from threading import Event
 
-# Shared queue
+# Shared components
 workQueue = queue.Queue(5000)
 
+# Producer components
 # Boinc servers to connect to
 boinc_hosts = [
     "192.168.1.220", "192.168.1.221", "192.168.1.222"
@@ -15,6 +16,7 @@ boinc_hosts = [
 producer_threads = list()
 producerStopEvent = Event()
 
+# Consumer components
 # InfluxDB server info
 influxdb_hosts = ["192.168.1.230"]
 influxdb_database = 'boinc_test'

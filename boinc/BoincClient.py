@@ -183,7 +183,7 @@ class BoincClient(object):
         """ Build data points for transmission to InfluxDB for project and task monitoring. """
         points = []
         # Get info from boinc client
-        hostInfo = self.get_host_info()
+        host_info = self.get_host_info()
         dt = datetime.now(tz=pytz.timezone('US/Pacific')).isoformat()
         rs = ResultState()
         ps = Process()
@@ -194,8 +194,8 @@ class BoincClient(object):
             # Create new point
             point = Point(measurement='task', time=dt)
             # Set tags
-            point.tags['host'] = hostInfo.domain_name
-            point.tags['ip_address'] = hostInfo.ip_addr
+            point.tags['host'] = host_info.domain_name
+            point.tags['ip_address'] = host_info.ip_addr
             point.tags['project_name'] = [project.project_name for project in projects
                                           if project.master_url == result.project_url][0]
             point.tags['state'] = rs.name(result.state)
@@ -216,8 +216,8 @@ class BoincClient(object):
             # Create new point
             point = Point(measurement='project', time=dt)
             # Set tags
-            point.tags['host'] = hostInfo.domain_name
-            point.tags['ip_address'] = hostInfo.ip_addr
+            point.tags['host'] = host_info.domain_name
+            point.tags['ip_address'] = host_info.ip_addr
             point.tags['project_name'] = project.project_name
             # Set fields
             point.fields['host_total_credit'] = project.host_total_credit
