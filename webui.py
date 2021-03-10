@@ -5,6 +5,7 @@ from flask_restplus import Api, Resource, fields
 import api.constants as const
 from boinc.BoincThread import BoincThread
 from influx.InfluxThread import InfluxThread
+from gridcoin.GridcoinThread import GridcoinThread
 
 logging.basicConfig(filename='./webui.log', level=logging.DEBUG, filemode='w')
 
@@ -52,7 +53,7 @@ class ControlBoincThreads(Resource):
             for host in const.boinc_hosts:
                 const.producerStopEvent.clear()
                 boinc_worker = BoincThread(ip=host
-                                           , shared_queue=const.workQueue
+                                           , shared_queue=const.boincWorkQueue
                                            , event=const.producerStopEvent
                                            , name="boinc_" + host + '_thread')
                 boinc_worker.start()
@@ -65,6 +66,46 @@ class ControlBoincThreads(Resource):
             return self.get()
         elif action.lower() == 'list':
             logging.debug(("listing boinc threads"))
+            return self.get()
+        else:
+            app.abort(400)
+
+
+@app.route('/grc/hosts')
+class GetBoincNodes(Resource):
+    def get(self):
+        return jsonify(const.grc_hosts)
+
+
+@app.route('/grc/threads/<string:action>')
+@app.doc(params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
+class ControlGrcThreads(Resource):
+    @app.hide
+    def get(self, action='list'):
+        return jsonify([{"name": thread.name, "is_alive": thread.is_alive()} for thread in const.producer_threads])
+
+    @app.response(400, 'Invalid action specified')
+    def put(self, action):
+        if action.lower() == 'start':
+            logging.debug("starting grc threads")
+            const.producerStopEvent.clear()
+            grc_worker = GridcoinThread(ip=const.gridcoin_host
+                                        , port=const.gridcoin_port
+                                        , user=const.gridcoin_user
+                                        , passwd=const.gridcoin_pass
+                                        , shared_queue=const.grcWorkQueue
+                                        , event=const.producerStopEvent
+                                        , name="grc_" + const.gridcoin_host + '_thread')
+            grc_worker.start()
+            const.producer_threads.append(grc_worker)
+            return self.get()
+        elif action.lower() == 'stop':
+            logging.debug("stopping grc threads")
+            const.producerStopEvent.set()
+            const.producer_threads.clear()
+            return self.get()
+        elif action.lower() == 'list':
+            logging.debug(("listing grc threads"))
             return self.get()
         else:
             app.abort(400)
@@ -89,13 +130,22 @@ class ControlInfluxThreads(Resource):
             logging.debug("starting influxdb threads")
             for host in const.influxdb_hosts:
                 const.consumerStopEvent.clear()
-                influx_worker = InfluxThread(db_host=host
-                                             , database=const.influxdb_database
-                                             , shared_queue=const.workQueue
-                                             , event=const.consumerStopEvent
-                                             , name="influx_" + host + "_name")
-                influx_worker.start()
-                const.consumer_threads.append(influx_worker)
+                influx_boinc_worker = InfluxThread(db_host=host
+                                                   , database=const.influxdb_boinc_database
+                                                   , shared_queue=const.boincWorkQueue
+                                                   , event=const.consumerStopEvent
+                                                   , name="influx_" + host + "_" + const.influxdb_boinc_database)
+                influx_boinc_worker.start()
+                const.consumer_threads.append(influx_boinc_worker)
+
+                influx_grc_worker = InfluxThread(db_host=host
+                                                 , database=const.influxdb_grc_database
+                                                 , shared_queue=const.grcWorkQueue
+                                                 , event=const.consumerStopEvent
+                                                 , name="influx_" + host + "_" + const.influxdb_grc_database)
+                influx_grc_worker.start()
+                const.consumer_threads.append(influx_grc_worker)
+
             return self.get()
         elif action.lower() == 'stop':
             logging.debug("stopping influxdb threads")

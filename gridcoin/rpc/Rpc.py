@@ -1,4 +1,7 @@
 import requests
+import jsons
+
+from gridcoin._Helpers import clean_dict
 
 
 class Rpc(object):
