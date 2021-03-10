@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 import jsons
+import pytz
 
 from gridcoin.rpc.Rpc import Rpc
 from gridcoin.rpc.WalletInfo import WalletInfo
@@ -38,7 +39,7 @@ class GridcoinClient(object):
 
     def getGRCPoints(self):
         points = []
-        dt = datetime.now()
+        dt = datetime.now(tz=pytz.timezone('US/Pacific')).isoformat()
         mag = self.explainMagnitude()
         mining = self.getMiningInfo()
         for prj in mag.magnitude:
