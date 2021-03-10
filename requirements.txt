@@ -5,3 +5,4 @@ six==1.15.0
 urllib3==1.26.3
 influxdb
 jsons
+flask_restplus
