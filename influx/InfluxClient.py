@@ -6,7 +6,7 @@ class InfluxClient(object):
         self.database = database
         self.host = host
         self.port = port
-        self.client = InfluxDBClient(host=self.host, port=self.port)
+        self.client = InfluxDBClient(host=self.host, port=self.port, pool_size=3)
 
     def __enter__(self):
         databases = self.client.get_list_database()
@@ -23,4 +23,4 @@ class InfluxClient(object):
         self.client.close()
 
     def write_data(self, data):
-        self.client.write_points(points=data, database=self.database)
+        self.client.write_points(points=data, database=self.database, batch_size=250)

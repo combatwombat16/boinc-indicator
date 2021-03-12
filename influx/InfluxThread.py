@@ -1,11 +1,12 @@
-from threading import Thread
+from threading import Thread, Event, Lock
 import logging
+from queue import Queue
 
 from influx.InfluxClient import InfluxClient
 
 
 class InfluxThread(Thread):
-    def __init__(self, event, shared_queue, database, db_host, name, port=8086):
+    def __init__(self, lock: Lock, event: Event, shared_queue: Queue, database, db_host, name, port=8086):
         Thread.__init__(self)
         self.queue = shared_queue
         self.database = database
@@ -13,6 +14,7 @@ class InfluxThread(Thread):
         self.name = name
         self.port = port
         self.stopped = event
+        self.lock = lock
         logging.info('Connecting to InfluxDB at host %s and database %s' % (self.db_host, self.database))
         self.collector = InfluxClient(database=self.database, host=self.db_host, port=self.port).__enter__()
 
@@ -29,8 +31,9 @@ class InfluxThread(Thread):
         data = []
         while not self.stopped.wait(10):
             logging.debug('Draining %d points from the queue' % (self.queue.qsize()))
+            self.lock.acquire(blocking=True)
             while not self.queue.empty():
                 data.append(self.queue.get())
+            self.lock.release()
             self.collector.write_data(data)
-
         self.__exit__()

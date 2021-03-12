@@ -1,4 +1,5 @@
 import logging
+from time import sleep
 from flask import Flask, jsonify
 from flask_restplus import Api, Resource, fields
 
@@ -27,94 +28,88 @@ thread_info = app.model("threads", {
 })
 
 
-@app.route('/')
-class Home(Resource):
-    def get(self):
-        return "<h1>Boinc API</h1><p>This API interacts with Boinc and InfluxDB to capture statistics for visualization.</p>"
-
-
-@app.route('/boinc/hosts')
-class GetBoincNodes(Resource):
-    def get(self):
-        return jsonify(const.boinc_hosts)
-
-
-@app.route('/boinc/threads/<string:action>')
-@app.doc(params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
-class ControlBoincThreads(Resource):
-    @app.hide
-    def get(self, action='list'):
-        return jsonify([{"name": thread.name, "is_alive": thread.is_alive()} for thread in const.producer_threads])
-
-    @app.response(400, 'Invalid action specified')
-    def put(self, action):
-        if action.lower() == 'start':
-            logging.debug("starting boinc threads")
-            for host in const.boinc_hosts:
-                const.producerStopEvent.clear()
-                boinc_worker = BoincThread(ip=host
-                                           , shared_queue=const.boincWorkQueue
-                                           , event=const.producerStopEvent
-                                           , name="boinc_" + host + '_thread')
-                boinc_worker.start()
-                const.producer_threads.append(boinc_worker)
-            return self.get()
-        elif action.lower() == 'stop':
-            logging.debug("stopping boinc threads")
-            const.producerStopEvent.set()
-            const.producer_threads.clear()
-            return self.get()
-        elif action.lower() == 'list':
-            logging.debug(("listing boinc threads"))
-            return self.get()
+@app.route('/hosts/<string:component>')
+@app.doc(params={'component': '"influxdb", "grc" or "boinc"'})
+class GetHostInfo(Resource):
+    @app.response(400, 'Invalid component specified')
+    def get(self, component):
+        if component.lower() == 'grc':
+            return jsonify(const.gridcoin_hosts)
+        elif component.lower() == 'boinc':
+            return jsonify(const.boinc_hosts)
+        elif component.lower() == 'influxdb':
+            return jsonify(const.influxdb_hosts)
         else:
             app.abort(400)
 
 
-@app.route('/grc/hosts')
-class GetBoincNodes(Resource):
-    def get(self):
-        return jsonify(const.grc_hosts)
-
-
-@app.route('/grc/threads/<string:action>')
-@app.doc(params={'action': '"list", "start" or "stop" threads'}, model=thread_info)
-class ControlGrcThreads(Resource):
+@app.route('/producer/threads/<string:component>/<string:action>')
+@app.doc(params={'component': '"grc" or "boinc"', 'action': '"list", "start" or "stop" threads'}, model=thread_info)
+class ControlProducerThreads(Resource):
     @app.hide
-    def get(self, action='list'):
-        return jsonify([{"name": thread.name, "is_alive": thread.is_alive()} for thread in const.producer_threads])
-
-    @app.response(400, 'Invalid action specified')
-    def put(self, action):
-        if action.lower() == 'start':
-            logging.debug("starting grc threads")
-            const.producerStopEvent.clear()
-            grc_worker = GridcoinThread(ip=const.gridcoin_host
-                                        , port=const.gridcoin_port
-                                        , user=const.gridcoin_user
-                                        , passwd=const.gridcoin_pass
-                                        , shared_queue=const.grcWorkQueue
-                                        , event=const.producerStopEvent
-                                        , name="grc_" + const.gridcoin_host + '_thread')
-            grc_worker.start()
-            const.producer_threads.append(grc_worker)
-            return self.get()
-        elif action.lower() == 'stop':
-            logging.debug("stopping grc threads")
-            const.producerStopEvent.set()
-            const.producer_threads.clear()
-            return self.get()
-        elif action.lower() == 'list':
-            logging.debug(("listing grc threads"))
-            return self.get()
+    @app.response(400, 'Invalid parameter specified')
+    def get(self, component, action='list'):
+        if component.lower() == 'grc':
+            return jsonify(
+                [{"name": thread.name, "is_alive": thread.is_alive()} for thread in const.gridcoin_producer_threads])
+        elif component.lower() == 'boinc':
+            return jsonify(
+                [{"name": thread.name, "is_alive": thread.is_alive()} for thread in const.boinc_producer_threads])
         else:
             app.abort(400)
 
-
-@app.route('/influxdb/hosts')
-class GetInfluxdbHosts(Resource):
-    def get(self):
-        return jsonify(const.influxdb_hosts)
+    @app.response(400, 'Invalid parameter specified')
+    def put(self, component, action):
+        if component.lower() == 'grc':
+            hosts = const.gridcoin_hosts
+            queue = const.gridcoin_work_queue
+            event = const.gridcoin_consumer_stop_event
+            user = const.gridcoin_user
+            passwd = const.gridcoin_pass
+            port = const.gridcoin_port
+            thread_group = const.gridcoin_producer_threads
+            lock = const.gridcoin_lock
+        elif component.lower() == 'boinc':
+            hosts = const.boinc_hosts
+            queue = const.boinc_work_queue
+            event = const.boinc_producer_stop_event
+            thread_group = const.boinc_producer_threads
+            lock = const.boinc_lock
+        else:
+            app.abort(400)
+        if action.lower() == 'start':
+            logging.debug("starting %s threads" % (component))
+            for host in hosts:
+                thread_name = '%s_%s_thread' % (component, host)
+                event.clear()
+                if component == 'boinc':
+                    worker = BoincThread(ip=host
+                                         , lock=lock
+                                         , shared_queue=queue
+                                         , event=event
+                                         , name=thread_name)
+                elif component == 'grc':
+                    worker = GridcoinThread(ip=host
+                                            , port=port
+                                            , user=user
+                                            , passwd=passwd
+                                            , lock=lock
+                                            , event=event
+                                            , shared_queue=queue
+                                            , name=thread_name)
+                worker.start()
+                thread_group.append(worker)
+            return self.get(component)
+        elif action.lower() == 'stop':
+            logging.debug("stopping %s threads" % (component))
+            event.set()
+            thread_group.clear()
+            return self.get(component)
+        elif action.lower() == 'list':
+            logging.debug(("listing %s threads" % (component)))
+            return self.get(component)
+        else:
+            app.abort(400)
 
 
 @app.route('/influxdb/threads/<string:action>')
@@ -122,35 +117,37 @@ class GetInfluxdbHosts(Resource):
 class ControlInfluxThreads(Resource):
     @app.hide
     def get(self, action='list'):
-        return jsonify([{'name': thread.name, 'is_alive': thread.is_alive()} for thread in const.consumer_threads])
+        return jsonify(
+            [{'name': thread.name, 'is_alive': thread.is_alive()} for thread in const.boinc_consumer_threads])
 
     @app.response(400, 'Invalid action specified')
     def put(self, action):
         if action.lower() == 'start':
             logging.debug("starting influxdb threads")
             for host in const.influxdb_hosts:
-                const.consumerStopEvent.clear()
+                const.boinc_consumer_stop_event.clear()
                 influx_boinc_worker = InfluxThread(db_host=host
+                                                   , lock=const.boinc_lock
                                                    , database=const.influxdb_boinc_database
-                                                   , shared_queue=const.boincWorkQueue
-                                                   , event=const.consumerStopEvent
+                                                   , shared_queue=const.boinc_work_queue
+                                                   , event=const.boinc_consumer_stop_event
                                                    , name="influx_" + host + "_" + const.influxdb_boinc_database)
                 influx_boinc_worker.start()
-                const.consumer_threads.append(influx_boinc_worker)
-
+                const.boinc_consumer_threads.append(influx_boinc_worker)
                 influx_grc_worker = InfluxThread(db_host=host
+                                                 , lock=const.gridcoin_lock
                                                  , database=const.influxdb_grc_database
-                                                 , shared_queue=const.grcWorkQueue
-                                                 , event=const.consumerStopEvent
+                                                 , shared_queue=const.gridcoin_work_queue
+                                                 , event=const.boinc_consumer_stop_event
                                                  , name="influx_" + host + "_" + const.influxdb_grc_database)
                 influx_grc_worker.start()
-                const.consumer_threads.append(influx_grc_worker)
+                const.boinc_consumer_threads.append(influx_grc_worker)
 
             return self.get()
         elif action.lower() == 'stop':
             logging.debug("stopping influxdb threads")
-            const.consumerStopEvent.set()
-            const.consumer_threads.clear()
+            const.boinc_consumer_stop_event.set()
+            const.boinc_consumer_threads.clear()
             return self.get()
         elif action.lower() == 'list':
             logging.debug("listing influxdb threads")
