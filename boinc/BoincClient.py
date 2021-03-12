@@ -219,6 +219,7 @@ class BoincClient(object):
             point.tags['host'] = host_info.domain_name
             point.tags['ip_address'] = host_info.ip_addr
             point.tags['project_name'] = project.project_name
+            point.tags['cpid'] = project.external_cpid
             # Set fields
             point.fields['host_total_credit'] = project.host_total_credit
             point.fields['host_average_credit'] = project.host_expavg_credit
