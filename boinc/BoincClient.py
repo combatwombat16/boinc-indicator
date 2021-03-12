@@ -198,6 +198,8 @@ class BoincClient(object):
             point.tags['ip_address'] = host_info.ip_addr
             point.tags['project_name'] = [project.project_name for project in projects
                                           if project.master_url == result.project_url][0]
+            point.tags['cpid'] = [project.external_cpid for project in projects
+                                          if project.master_url == result.project_url][0]
             point.tags['state'] = rs.name(result.state)
             point.tags['active_task_state'] = ps.name(result.active_task_state)
             point.tags['scheduler_state'] = cs.name(result.scheduler_state)
