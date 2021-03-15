@@ -2,6 +2,7 @@ import socket
 import hashlib
 import pytz
 from datetime import datetime
+from influxdb_client import Point
 
 from boinc._Helpers import read_gui_rpc_password
 from boinc.rpc.Rpc import Rpc
@@ -15,7 +16,6 @@ from boinc.rpc.enums.ResultState import ResultState
 from boinc.rpc.enums.Process import Process
 from boinc.rpc.enums.CpuSched import CpuSched
 
-from influx.Point import Point
 
 
 class BoincClient(object):
@@ -179,7 +179,7 @@ class BoincClient(object):
             return True
         return False
 
-    def getInfluxPoints(self):
+    def getInfluxPoints(self, bucket):
         """ Build data points for transmission to InfluxDB for project and task monitoring. """
         points = []
         # Get info from boinc client
@@ -192,43 +192,45 @@ class BoincClient(object):
         projects = self.get_projects()
         for result in results:
             # Create new point
-            point = Point(measurement='task', time=dt)
+            point = Point(measurement_name='task')
+            point.time(time=dt)
             # Set tags
-            point.tags['host'] = host_info.domain_name
-            point.tags['ip_address'] = host_info.ip_addr
-            point.tags['project_name'] = [project.project_name for project in projects
-                                          if project.master_url == result.project_url][0]
-            point.tags['cpid'] = [project.external_cpid for project in projects
-                                          if project.master_url == result.project_url][0]
-            point.tags['state'] = rs.name(result.state)
-            point.tags['active_task_state'] = ps.name(result.active_task_state)
-            point.tags['scheduler_state'] = cs.name(result.scheduler_state)
-            point.tags['task_name'] = result.name
+            point.tag('host', host_info.domain_name)
+            point.tag('ip_address', host_info.ip_addr)
+            point.tag('project_name', [project.project_name for project in projects
+                                          if project.master_url == result.project_url][0])
+            point.tag('cpid', [project.external_cpid for project in projects
+                                          if project.master_url == result.project_url][0])
+            point.tag('state', rs.name(result.state))
+            point.tag('active_task_state', ps.name(result.active_task_state))
+            point.tag('scheduler_state', cs.name(result.scheduler_state))
+            point.tag('task_name', result.name)
             # Set fields
-            point.fields['elapsed_time'] = result.elapsed_time
-            point.fields['fraction_done'] = result.fraction_done
-            point.fields['swap_size'] = result.swap_size
+            point.field('elapsed_time', result.elapsed_time)
+            point.field('fraction_done', result.fraction_done)
+            point.field('swap_size', result.swap_size)
             tmp_res = result.resources.split("+")
             cpu = tmp_res[0].strip().split(" ")[0]
-            point.fields['cpu'] = float(cpu) if cpu != '' else 0.0
-            point.fields['gpu'] = 1 if len(tmp_res) > 1 else 0
-            points.append(point)
+            point.field('cpu', float(cpu) if cpu != '' else 0.0)
+            point.field('gpu', 1 if len(tmp_res) > 1 else 0)
+            points.append({"bucket": bucket, "point": point})
 
         for project in projects:
             # Create new point
-            point = Point(measurement='project', time=dt)
+            point = Point(measurement_name='project')
+            point.time(time=dt)
             # Set tags
-            point.tags['host'] = host_info.domain_name
-            point.tags['ip_address'] = host_info.ip_addr
-            point.tags['project_name'] = project.project_name
-            point.tags['cpid'] = project.external_cpid
+            point.tag('host', host_info.domain_name)
+            point.tag('ip_address', host_info.ip_addr)
+            point.tag('project_name', project.project_name)
+            point.tag('cpid', project.external_cpid)
             # Set fields
-            point.fields['host_total_credit'] = project.host_total_credit
-            point.fields['host_average_credit'] = project.host_expavg_credit
-            point.fields['user_total_credit'] = project.user_total_credit
-            point.fields['user_average_credit'] = project.user_expavg_credit
-            point.fields['completed_jobs'] = project.njobs_success
-            point.fields['failed_jobs'] = project.njobs_error
-            points.append(point)
+            point.field('host_total_credit', project.host_total_credit)
+            point.field('host_average_credit', project.host_expavg_credit)
+            point.field('user_total_credit', project.user_total_credit)
+            point.field('user_average_credit', project.user_expavg_credit)
+            point.field('completed_jobs', project.njobs_success)
+            point.field('failed_jobs', project.njobs_error)
+            points.append({"bucket": bucket, "point": point})
 
         return points

@@ -1,26 +1,24 @@
-from influxdb import InfluxDBClient
+from influxdb_client import InfluxDBClient, WriteOptions, Point
 
 
 class InfluxClient(object):
-    def __init__(self, database, host, port=8086):
-        self.database = database
+    def __init__(self, token, org, host, port=8086):
+        self.token = token
+        self.org = org
         self.host = host
         self.port = port
-        self.client = InfluxDBClient(host=self.host, port=self.port, pool_size=3)
-
-    def __enter__(self):
-        databases = self.client.get_list_database()
-        if len([db["name"] for db in databases if self.database == db["name"]]) == 0:
-            print("Did not find database %s in influx host %s" % (self.database, self.host))
-            self.client.create_database(self.database)
-            self.client.switch_database(self.database)
-        else:
-            print("Found database %s in influx host %s" % (self.database, self.host))
-            self.client.switch_database(self.database)
-        return self
+        self._client = InfluxDBClient(url="http://%s:%s" % (self.host, self.port)
+                                      , token=self.token
+                                      , org=self.org)
+        self.write_options = WriteOptions(batch_size=250, flush_interval=1000, jitter_interval=50)
+        self._write_client = self._client.write_api(write_options=self.write_options)
 
     def __exit__(self, *args):
-        self.client.close()
+        self._write_client.close()
+        self._client.close()
 
-    def write_data(self, data):
-        self.client.write_points(points=data, database=self.database, batch_size=250)
+    def write_data(self, data: [Point], bucket):
+        self._write_client.write(bucket=bucket
+                                 , org=self.org
+                                 , record=data)
+        #self._write_client.close()

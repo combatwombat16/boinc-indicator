@@ -10,8 +10,7 @@ from gridcoin.rpc.MiningInfo import MiningInfo
 from gridcoin.rpc.BeaconStatus import BeaconStatus
 from gridcoin.rpc.Info import Info
 from gridcoin._Helpers import clean_dict
-from influx.Point import Point
-
+from influxdb_client import Point
 
 class GridcoinClient(object):
     def __init__(self, ip, port, user, passwd):
@@ -37,26 +36,28 @@ class GridcoinClient(object):
         resp_json = self.rpc.call(method='getinfo')
         return Info(**clean_dict(resp_json))
 
-    def getGRCPoints(self):
+    def getGRCPoints(self, bucket):
         points = []
         dt = datetime.now(tz=pytz.timezone('US/Pacific')).isoformat()
         mag = self.explainMagnitude()
         mining = self.getMiningInfo()
         for prj in mag.magnitude:
-            point = Point(measurement='magnitude', time=dt)
-            point.tags['project_name'] = prj.project
-            point.fields['rac'] = prj.rac
-            point.fields['magnitude'] = prj.magnitude
-            points.append(point)
+            point = Point(measurement_name='magnitude')
+            point.time(time=dt)
+            point.tag('project_name', prj.project)
+            point.field('rac', prj.rac)
+            point.field('magnitude', prj.magnitude)
+            points.append({"bucket": bucket, "point": point})
 
-        mining_point = Point(measurement='mining', time=dt)
-        mining_point.tags['CPID'] = mining.CPID
-        mining_point.fields['blocks'] = mining.blocks
-        mining_point.fields['magnitude'] = mining.current_magnitude
-        mining_point.fields['current_difficulty'] = mining.difficulty.current
-        mining_point.fields['pending_reward'] = mining.BoincRewardPending
-        mining_point.fields['stake_weight'] = mining.stakeweight.valuesum
-        mining_point.fields['time_to_stake'] = mining.time_to_stake_days
-        mining_point.fields['staking_efficiency'] = mining.staking_efficiency
-        points.append(mining_point)
+        mining_point = Point(measurement_name='mining')
+        mining_point.time(time=dt)
+        mining_point.tag('CPID', mining.CPID)
+        mining_point.field('blocks', mining.blocks)
+        mining_point.field('magnitude', mining.current_magnitude)
+        mining_point.field('current_difficulty', mining.difficulty.current)
+        mining_point.field('pending_reward', mining.BoincRewardPending)
+        mining_point.field('stake_weight', mining.stakeweight.valuesum)
+        mining_point.field('time_to_stake', mining.time_to_stake_days)
+        mining_point.field('staking_efficiency', mining.staking_efficiency)
+        points.append({"bucket": bucket, "point": mining_point})
         return points

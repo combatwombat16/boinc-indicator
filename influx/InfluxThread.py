@@ -1,39 +1,51 @@
-from threading import Thread, Event, Lock
+from threading import Thread, Event
 import logging
 from queue import Queue
+from requests.sessions import Session
 
 from influx.InfluxClient import InfluxClient
 
 
 class InfluxThread(Thread):
-    def __init__(self, lock: Lock, event: Event, shared_queue: Queue, database, db_host, name, port=8086):
-        Thread.__init__(self)
+    def __init__(self, name, event: Event, shared_queue: Queue, org, token, db_host, port=8086, daemon=True):
+        Thread.__init__(self, daemon=daemon)
         self.queue = shared_queue
-        self.database = database
         self.db_host = db_host
         self.name = name
         self.port = port
         self.stopped = event
-        self.lock = lock
-        logging.info('Connecting to InfluxDB at host %s and database %s' % (self.db_host, self.database))
-        self.collector = InfluxClient(database=self.database, host=self.db_host, port=self.port).__enter__()
+        self.org = org
+        self.token = token
+        logging.info('Connecting to InfluxDB at host %s' % (self.db_host))
+        self.collector = InfluxClient(host=self.db_host
+                                      , port=self.port
+                                      , org=self.org
+                                      , token=self.token)
 
     def __exit__(self):
         logging.debug("Draining pool one last time then exiting")
-        data = []
+        data = dict()
         while not self.queue.empty():
-            data.append(self.queue.get())
-        self.collector.write_data(data)
+            rec = self.queue.get()
+            if rec["bucket"] not in data.keys():
+                data[rec["bucket"]] = [rec["point"]]
+            else:
+                data[rec["bucket"]].append(rec["point"])
+        for bucket in data:
+            self.collector.write_data(data=data[bucket], bucket=bucket)
         logging.info("Disconnecting from Influx host")
         self.collector.__exit__()
 
     def run(self):
-        data = []
+        data = dict()
         while not self.stopped.wait(10):
             logging.debug('Draining %d points from the queue' % (self.queue.qsize()))
-            self.lock.acquire(blocking=True)
             while not self.queue.empty():
-                data.append(self.queue.get())
-            self.lock.release()
-            self.collector.write_data(data)
+                rec = self.queue.get()
+                if rec["bucket"] not in data.keys():
+                    data[rec["bucket"]] = [rec["point"]]
+                else:
+                    data[rec["bucket"]].append(rec["point"])
+            for bucket in data:
+                self.collector.write_data(data=data[bucket], bucket=bucket)
         self.__exit__()
