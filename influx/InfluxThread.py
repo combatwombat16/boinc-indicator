@@ -41,7 +41,7 @@ class InfluxThread(Thread):
         while not self.stopped.wait(10):
             logging.debug('Draining %d points from the queue' % (self.queue.qsize()))
             while not self.queue.empty():
-                rec = self.queue.get()
+                rec = self.queue.get(block=True, timeout=1)
                 if rec["bucket"] not in data.keys():
                     data[rec["bucket"]] = [rec["point"]]
                 else:

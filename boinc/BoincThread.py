@@ -25,6 +25,6 @@ class BoincThread(Thread):
         while not self.stopped.wait(5):
             with self.client:
                 for point in self.client.getInfluxPoints(bucket=self.bucket):
-                    self.queue.put(point)
+                    self.queue.put(point, block=True, timeout=.5)
             logging.debug('Added points host %s, queue size now %d' % (self.ip, self.queue.qsize()))
         self.__exit__()

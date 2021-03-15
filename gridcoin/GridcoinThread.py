@@ -22,5 +22,5 @@ class GridcoinThread(Thread):
     def run(self):
         while not self.stopped.wait(10):
             for point in self.client.getGRCPoints(bucket=self.bucket):
-                self.queue.put(point)
+                self.queue.put(point, block=True, timeout=.3)
             logging.debug('Added points host %s, queue size now %d' % (self.ip, self.queue.qsize()))
