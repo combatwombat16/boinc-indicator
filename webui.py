@@ -6,6 +6,7 @@ from api.Constants import Constants
 from boinc.BoincThread import BoincThread
 from influx.InfluxThread import InfluxThread
 from gridcoin.GridcoinThread import GridcoinThread
+from sense.SenseThread import SenseThread
 
 logging.basicConfig(filename='./webui.log', level=logging.DEBUG, filemode='w')
 
@@ -76,6 +77,12 @@ class ControlProducerThreads(Resource):
             event = const.boinc_producer_stop_event
             thread_group = const.boinc_producer_threads
             bucket = const.influxdb_boinc_bucket
+        elif component.lower() == 'sense':
+            hosts = const.sense_hosts
+            event = const.sense_producer_stop_event
+            thread_group = const.sense_producer_threads
+            bucket = const.influxdb_sense_bucket
+            queue = const.work_queue
         else:
             app.abort(400)
         if action.lower() == 'start':
@@ -98,6 +105,11 @@ class ControlProducerThreads(Resource):
                                             , shared_queue=queue
                                             , name=thread_name
                                             , bucket=bucket)
+                elif component == "sense":
+                    worker = SenseThread(event=event
+                                         , shared_queue=queue
+                                         , bucket=bucket
+                                         , name=thread_name)
                 worker.start()
                 thread_group.append(worker)
             return self.get(component)
@@ -134,6 +146,7 @@ class ControlInfluxThreads(Resource):
                                              , event=const.influxdb_consumer_stop_event
                                              , name="influx_" + host + "_" + const.influxdb_org)
                 influx_worker.start()
+                const.influxdb_consumer_threads.append(influx_worker)
 
             return self.get()
         elif action.lower() == 'stop':

@@ -6,3 +6,5 @@ urllib3==1.26.3
 influxdb-client
 jsons
 flask_restplus
+sense-hat
+pytz
