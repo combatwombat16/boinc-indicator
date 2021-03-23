@@ -17,7 +17,6 @@ from boinc.rpc.enums.Process import Process
 from boinc.rpc.enums.CpuSched import CpuSched
 
 
-
 class BoincClient(object):
 
     def __init__(self, host="", passwd=None):
@@ -179,7 +178,7 @@ class BoincClient(object):
             return True
         return False
 
-    def getInfluxPoints(self, bucket):
+    def getBoincPoints(self, bucket):
         """ Build data points for transmission to InfluxDB for project and task monitoring. """
         points = []
         # Get info from boinc client

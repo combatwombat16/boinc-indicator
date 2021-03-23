@@ -1,7 +1,6 @@
 from threading import Thread, Event
 import logging
 from queue import Queue
-from requests.sessions import Session
 
 from influx.InfluxClient import InfluxClient
 
@@ -34,7 +33,6 @@ class InfluxThread(Thread):
         for bucket in data:
             self.collector.write_data(data=data[bucket], bucket=bucket)
         logging.info("Disconnecting from Influx host")
-        self.collector.__exit__()
 
     def run(self):
         data = dict()
